@@ -8,8 +8,15 @@ On ImageNet:
 On Stable Diffusion v1.4:
 ![Display3](imgs/sd_images.png)
 
-## Usage
-
+## Get Started
+### Installation
+Make sure you have conda installed first, then:
+```
+git clone
+cd QuEST
+conda env create -f environment.yml
+conda activate quest
+```
 
 
 
