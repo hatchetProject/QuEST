@@ -5,6 +5,8 @@ QuEST achieves state-of-the-art performance on mutiple high-resolution image gen
 ![Display1](imgs/fig1.png)
 On ImageNet:
 ![Display2](imgs/imagenet_figs.png)
+On Stable Diffusion v1.4:
+![Display3](imgs/sd_images.png)
 
 ## Usage
 
