@@ -538,50 +538,6 @@ if __name__ == "__main__":
                     logger.info("Doing activation calibration")   
                     # Initialize activation quantization parameters
                     qnn.set_quant_state(True, True)
-
-                    # with torch.no_grad():
-                    #     chosen_timestep = timesteps[0]
-                    #     qnn.set_timestep(chosen_timestep)
-                    #     _ = qnn(cali_xs[:64].cuda(), cali_ts[:64].cuda())
-                    #     # Copy initialized parameters
-                    #     logger.info("Copying parameters to other timesteps")
-                    #     for name, module in qnn.named_modules():
-                    #         if isinstance(module, (QuantModule)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.act_quantizer.quantizer_dict[k] = copy.deepcopy(module.act_quantizer.quantizer_dict[chosen_timestep])
-                    #                     if module.split != 0:
-                    #                         module.act_quantizer_0.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_0.quantizer_dict[chosen_timestep])
-                    #         elif isinstance(module, (QuantBasicTransformerBlock)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.attn1.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_q.quantizer_dict[chosen_timestep])
-                    #                     module.attn1.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_k.quantizer_dict[chosen_timestep])
-                    #                     module.attn1.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_v.quantizer_dict[chosen_timestep])
-                    #                     module.attn1.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_w.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_q.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_k.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_v.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_w.quantizer_dict[chosen_timestep])
-                    #         elif isinstance(module, (QuantQKMatMul)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_q.quantizer_dict[chosen_timestep])
-                    #                     module.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_k.quantizer_dict[chosen_timestep])
-                    #         elif isinstance(module, (QuantSMVMatMul)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_v.quantizer_dict[chosen_timestep])
-                    #                     module.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_w.quantizer_dict[chosen_timestep])
-                    #     logger.info("Copying done!")
-
-                    #     if opt.running_stat:
-                    #         logger.info('Running stat for activation quantization')
-                    #         qnn.set_running_stat(True)
-                    #         for i in trange(int(cali_xs.size(0) / 64)):
-                    #             _ = qnn(cali_xs[i * 64:(i + 1) * 64].cuda(), 
-                    #                 cali_ts[i * 64:(i + 1) * 64].cuda())
-                    #         qnn.set_running_stat(False)
                     
                     # Timewise initialization
                     with torch.no_grad():
@@ -629,7 +585,6 @@ if __name__ == "__main__":
 
             pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
             pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
-            # pd_optimizer_together(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
 
             logger.info("Saving calibrated quantized UNet model")
             qnn.save_dict_params()
@@ -653,38 +608,6 @@ if __name__ == "__main__":
 
             qnn.set_quant_state(True, True)
             model.model.diffusion_model = qnn
-
-            # qnn.set_quant_state(True, True)
-            # activation = {}
-            # def get_activation(name):
-            #     def hook(model, input, output): 
-            #         if name in activation:
-            #             activation[name] = torch.cat((activation[name], input[0].detach().cpu()), 0)
-            #         else:
-            #             activation[name] = input[0].detach().cpu()
-            #     return hook
-            # outlier_name = "qkv"
-            # for name, module in qnn.named_modules():
-            #     if outlier_name in name:
-            #         if "act" not in name and "weight" not in name:
-            #             module.register_forward_hook(get_activation(name))
-            # cali_xs, cali_ts = cali_data
-            # cali_xs = cali_xs.contiguous().cuda()
-            # cali_ts = cali_ts.contiguous().cuda()
-
-            # b_size = 64
-            # for i in range(5):
-            #     with torch.no_grad():
-            #         _ = qnn(cali_xs[i*b_size:(i+1)*b_size], cali_ts[i*b_size:(i+1)*b_size])
-            # for k in activation.keys():
-            #     # print(k, activation[k].shape)
-            #     activation[k] = activation[k].numpy()
-            #     activation[k] = np.mean(activation[k], axis=0)
-            #     # print(k, activation[k].shape)
-            # print("Saving activation values")
-            # for k in activation.keys():
-            #     np.save(os.path.join(logdir, f"{k}.npy"), activation[k])
-            # sys.exit(0)
 
     if not opt.resume and is_recon:
         logger.info("Delete cached data to save disk usage")
