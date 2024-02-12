@@ -489,14 +489,6 @@ if __name__ == "__main__":
             timesteps = [k for k, v in Counter(list(np.array(cali_data[1]))).items()]
             print("Number of timesteps and values:", len(timesteps), timesteps)
 
-            # import torch
-            # import io  
-            # buffer = io.BytesIO()
-            # torch.save(model.model.diffusion_model.state_dict(), buffer)
-            # model_size = buffer.tell()  # Size in bytes
-            # print(f'Model size: {model_size / 1024 / 1024:.2f} MB')  # Convert to MB
-            # sys.exit(0)
-
             # with model.ema_scope("Quantizing", restore=False):
             qnn = QuantModel(
                 model=model.model.diffusion_model, weight_quant_params=wq_params, act_quant_params=aq_params,
