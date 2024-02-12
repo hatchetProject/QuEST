@@ -375,12 +375,6 @@ def main():
     else:
         sampler = DDIMSampler(model)
 
-    # print("All:", sum(p.numel() for p in sampler.model.model.diffusion_model.parameters()))
-    # print("FeedForward:", sum(p.numel() for n, p in sampler.model.model.diffusion_model.named_parameters() if "ff.net" in n))
-    # print("to_q:", sum(p.numel() for n, p in sampler.model.model.diffusion_model.named_parameters() if "to_q" in n))
-    # print("to_k:", sum(p.numel() for n, p in sampler.model.model.diffusion_model.named_parameters() if "to_k" in n))
-    # print("to_v:", sum(p.numel() for n, p in sampler.model.model.diffusion_model.named_parameters() if "to_v" in n))
-
     assert(opt.cond)
     is_recon = False
     if opt.ptq:
@@ -401,27 +395,11 @@ def main():
             sample_data = torch.load(opt.cali_data_path)
             cali_data = get_train_samples(opt, sample_data, opt.ddim_steps)
 
-            ## Not including unconditional text input
-            # num = cali_data[0].shape[0]
-            # cali_data = (cali_data[0][:num // 2], cali_data[1][:num // 2], cali_data[2][:num // 2])
-
-            ## Only using unconditional text input
-            # num = cali_data[0].shape[0]
-            # cali_data = (cali_data[0][num // 2:], cali_data[1][num // 2:], cali_data[2][num // 2:])
-
             del(sample_data)
             gc.collect()
             logger.info(f"Calibration data shape: {cali_data[0].shape} {cali_data[1].shape} {cali_data[2].shape}")
             timesteps = [k for k, v in Counter(list(np.array(cali_data[1]))).items()]
             print("Number of timesteps and values:", len(timesteps), timesteps)
-
-            # import io
-            # buffer = io.BytesIO()
-            # torch.save(model.model.diffusion_model.state_dict(), buffer)
-            # model_size = buffer.tell()  # Size in bytes
-            # print(f'Model size: {model_size / 1024 / 1024:.2f} MB')  # Convert to MB
-            # sys.exit(0)
-
 
             qnn = QuantModel(
                 model=sampler.model.model.diffusion_model, weight_quant_params=wq_params, act_quant_params=aq_params,
@@ -446,30 +424,6 @@ def main():
                 cali_data_resume = (torch.randn(1, 4, 64, 64), torch.randint(0, 1000, (1,)), torch.randn(1, 77, 768))
                 resume_cali_model(qnn, opt.cali_ckpt, cali_data_resume, opt.quant_act, "qdiff", cond=opt.cond, timesteps=timesteps)
                 qnn.set_quant_state(True, True)
-
-                # def forward_hook(name):
-                #     def hook(qnn, input, output):
-                #         if isinstance(input, (tuple, list)):
-                #             input = input[0]
-                #         if len(input.shape) == 4 and input.shape[1] == 640 and input.shape[2] == 32: # and input[0].shape[1] == 1024
-                #             print(name, input.shape)
-                #         if len(input.shape) == 3 and input.shape[1] == 4096 and input.shape[2] == 320:
-                #             print(name, input.shape)
-                #         # if input.shape == 4096:
-                #             # print(name, input[0].shape)
-                #     return hook
-                # cali_xs, cali_ts, cali_cs = cali_data
-                # cali_xs = cali_xs.contiguous()
-                # cali_ts = cali_ts.contiguous()
-                # cali_cs = cali_cs.contiguous()
-                # for name, module in qnn.named_modules():
-                #     if isinstance(module, TimewiseUniformQuantizer):
-                #         module.register_forward_hook(forward_hook(name))
-                # for t in timesteps:
-                #     qnn.set_timestep(t)
-                #     inds = np.random.choice(cali_xs.shape[0], 2, replace=False)
-                #     _ = qnn(cali_xs[inds].cuda(), cali_ts[inds].cuda(), cali_cs[inds].cuda())
-                #     sys.exit(0)
             else:
                 cali_xs, cali_ts, cali_cs = cali_data
                 cali_xs = cali_xs.contiguous()
@@ -568,17 +522,6 @@ def main():
                                         module.attn2.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_w.quantizer_dict[chosen_timestep])
                         logger.info("Copying done!")
 
-                    # # TODO 1: Timestep wise init
-                    # with torch.no_grad():
-                    #     for i in trange(len(timesteps)):
-                    #         qnn.set_timestep(timesteps[i])
-                    #         t_idx = torch.where(cali_ts == timesteps[i])[0]
-                    #         cali_ts_t = cali_ts[t_idx]
-                    #         cali_cs_t = cali_cs[t_idx]
-                    #         cali_xs_t = cali_xs[t_idx]
-                    #         inds = np.random.choice(cali_xs_t.shape[0], b_size, replace=False)
-                    #         _ = qnn(cali_xs_t[inds].cuda(), cali_ts_t[inds].cuda(), cali_cs_t[inds].cuda())
-
                         if opt.running_stat:
                             logger.info('Running stat for activation quantization')
                             qnn.set_running_stat(True, opt.rs_sm_only)  # rs_sm_only=False
@@ -590,51 +533,16 @@ def main():
                                 _ = qnn(cali_xs[inds[i * b_size:(i + 1) * b_size]].cuda(), 
                                     cali_ts[inds[i * b_size:(i + 1) * b_size]].cuda(),
                                     cali_cs[inds[i * b_size:(i + 1) * b_size]].cuda())
-
-                            # logger.info("Copying parameters again to other timesteps")
-                            # for name, module in qnn.named_modules():
-                            #     if isinstance(module, (QuantModule)):
-                            #         for k in timesteps:
-                            #             if k != chosen_timestep:
-                            #                 module.act_quantizer.quantizer_dict[k] = copy.deepcopy(module.act_quantizer.quantizer_dict[chosen_timestep])
-                            #                 if module.split != 0:
-                            #                     module.act_quantizer_0.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_0.quantizer_dict[chosen_timestep])
-                            #     elif isinstance(module, (QuantBasicTransformerBlock)):
-                            #         for k in timesteps:
-                            #             if k != chosen_timestep:
-                            #                 module.attn1.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_q.quantizer_dict[chosen_timestep])
-                            #                 module.attn1.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_k.quantizer_dict[chosen_timestep])
-                            #                 module.attn1.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_v.quantizer_dict[chosen_timestep])
-                            #                 module.attn1.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_w.quantizer_dict[chosen_timestep])
-                            #                 module.attn2.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_q.quantizer_dict[chosen_timestep])
-                            #                 module.attn2.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_k.quantizer_dict[chosen_timestep])
-                            #                 module.attn2.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_v.quantizer_dict[chosen_timestep])
-                            #                 module.attn2.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_w.quantizer_dict[chosen_timestep])
-                            # logger.info("Copying done!")
-                            # Timestep wise running stat
-                            # for t in timesteps:
-                            #     cali_ts = cali_ts.contiguous()
-                            #     qnn.set_timestep(t)
-                            #     t_idx = torch.where(cali_ts == t)[0]
-                            #     cali_ts_t = cali_ts[t_idx]
-                            #     cali_cs_t = cali_cs[t_idx]
-                            #     cali_xs_t = cali_xs[t_idx]
-                            #     inds = np.arange(cali_xs_t.shape[0])
-                            #     np.random.shuffle(inds)
-                            #     for i in trange(int(cali_xs_t.size(0) / b_size)):
-                            #         _ = qnn(cali_xs_t[inds[i * b_size:(i + 1) * b_size]].cuda(), 
-                            #             cali_ts_t[inds[i * b_size:(i + 1) * b_size]].cuda(),
-                            #             cali_cs_t[inds[i * b_size:(i + 1) * b_size]].cuda())
                             qnn.set_running_stat(False, opt.rs_sm_only)
 
-                    # logger.info("Doing activation reconstruction")
-                    # for debugging, thus commented
-                    # kwargs = dict(
-                    #     cali_data=cali_data, batch_size=int(opt.cali_batch_size), iters=opt.cali_iters_a, act_quant=True, 
-                    #     opt_mode='mse', lr=opt.cali_lr, p=opt.cali_p, cond=opt.cond, timesteps=timesteps, outpath=outpath, 
-                    #     asym=False)
-                    # recon_model(qnn)
-                    # is_recon = True
+                    logger.info("Doing activation reconstruction")
+                    #for debugging, thus commented
+                    kwargs = dict(
+                        cali_data=cali_data, batch_size=int(opt.cali_batch_size), iters=opt.cali_iters_a, act_quant=True, 
+                        opt_mode='mse', lr=opt.cali_lr, p=opt.cali_p, cond=opt.cond, timesteps=timesteps, outpath=outpath, 
+                        asym=False)
+                    recon_model(qnn)
+                    is_recon = True
 
                 logger.info("Saving calibrated quantized UNet model")
                 # Save quantization parameters as model parameters
@@ -658,71 +566,10 @@ def main():
                             else:
                                 m.zero_point_list = nn.Parameter(m.zero_point_list)
                 torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt.pth"))
-
-            # CONCLUSION: skip_connection, attn, in_layers, out_layers
-            
-            # for name, module in qnn.named_modules():
-            #     if isinstance(module, (QuantModule)):
-            #         # if "proj_in" in name or "skip_connection" in name or "attn" in name or "proj_out" in name or "in_layers" in name or \
-            #                 # "out_layers" in name or "ff" in name or "emb" in name or "conv" in name or "out" in name or "op" in name or "0.0" in name:
-            #         if "transformer_blocks" in name: # or "out" in name or "0.0" in name:]
-            #             if "to_out" in name:  #"ff" in name or 
-            #                 print(name)
-            #                 module.set_quant_state(True, False)
-                    # if "out.2" in name: # or "0.0" in name:
-                    #     print(name)
-                    #     module.set_quant_state(True, False)
-                    # else:
-                    #     print(name)
-                    
-                    # if "attn" in name or "skip_connection" in name:  # Matters a lot
-                    # if "skip_connection" in name:
-                    # if "proj" in name or "emb" in name or "conv" in name or "out_layers" in name:
-                    #     pass
-                    # else:
-                    #     print(name)
-                    #     module.set_quant_state(True, False)
-            # For weight reconstruction
-            # kwargs = dict(cali_data=cali_data, batch_size=opt.cali_batch_size, 
-            #                 iters=5000, weight=0.01, asym=True, b_range=(20, 2),
-            #                 warmup=0.2, act_quant=False, opt_mode='mse', cond=opt.cond, outpath=outpath)
-            # # For activation reconstruction
-            # kwargs = dict(
-            #     cali_data=cali_data, batch_size=int(opt.cali_batch_size), iters=opt.cali_iters_a, act_quant=True, 
-            #     opt_mode='mse', lr=1e-5, p=opt.cali_p, cond=opt.cond, timesteps=timesteps, outpath=outpath,  # Learning rate?
-            #     asym=False)
-            # num_inp = 0
-            # num_mid = 0
-            # num_out = 0
-            # for name, module in qnn.named_modules():
-            #     if isinstance(module, QuantModule):
-            #         # if "ff.net.2" in name and 'input' in name:
-            #         #     if num_inp > 1:
-            #         #         continue
-            #         #     logger.info('Reconstruction for layer {}'.format(name))
-            #         #     post_layer_weight_reconstruction(qnn, module, **kwargs)
-            #         #     num_inp += 1
-            #         # if "ff.net.2" in name and 'middle' in name:
-            #         #     if num_mid > 1:
-            #         #         continue
-            #         #     logger.info('Reconstruction for layer {}'.format(name))
-            #         #     post_layer_weight_reconstruction(qnn, module, **kwargs)
-            #         #     num_mid += 1
-            #         if "ff.net.2" in name and 'output' in name:
-            #             if num_out > 1:
-            #                 continue
-            #             logger.info('Reconstruction for layer {}'.format(name))
-            #             optimize_bias(qnn, module, **kwargs)
-            #             num_out += 1
-
             torch.cuda.empty_cache()
-            # pd_optimize_1(qnn, cali_data, sampler, opt, iters=1000, timesteps=timesteps, outpath=outpath)
+        
             pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath)
             pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath)
-            # # pd_optimize_conv_timewise(qnn, cali_data, sampler, opt, iters=1000, timesteps=timesteps, outpath=outpath)
-
-            # # # # is_recon = True
-            # # # # opt.resume = False
             qnn.set_quant_state(True, True)
 
             logger.info("Saving calibrated quantized UNet model")
@@ -746,118 +593,6 @@ def main():
                         else:
                             m.zero_point_list = nn.Parameter(m.zero_point_list.float())
             torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt.pth"))
-            
-
-            qnn.set_quant_state(True, True)
-            activation = {}
-            def get_activation(name):
-                def hook(model, input, output): 
-                    if name in activation:
-                        # activation[name] = torch.cat((activation[name], output.detach().cpu()), 0)
-                        activation[name] = torch.cat((activation[name], input[0].detach().cpu()), 0)
-                    else:
-                        # activation[name] = output.detach().cpu()
-                        activation[name] = input[0].detach().cpu()
-                return hook
-            outlier_name = "ff.net"
-            for name, module in qnn.named_modules():
-                if outlier_name in name:
-                    if "act" not in name and "weight" not in name:
-                        module.register_forward_hook(get_activation(name))
-            cali_xs, cali_ts, cali_conds = cali_data
-            cali_xs = cali_xs.contiguous().cuda()
-            cali_ts = cali_ts.contiguous().cuda()
-            cali_conds = cali_conds.contiguous().cuda()
-
-            b_size = 4
-            for i in range(5):
-                with torch.no_grad():
-                    _ = qnn(cali_xs[i*b_size:(i+1)*b_size], cali_ts[i*b_size:(i+1)*b_size], cali_conds[i*b_size:(i+1)*b_size])
-            for k in activation.keys():
-                # print(k, activation[k].shape)
-                activation[k] = activation[k].numpy()
-                activation[k] = np.mean(activation[k], axis=0)
-                # print(k, activation[k].shape)
-            print("Saving activation values")
-            for k in activation.keys():
-                np.save(os.path.join(outpath, f"{k}.npy"), activation[k])
-            sys.exit(0)
-
-            # for k in range(50):
-            #     activation = {}
-            #     b_size = 8
-            #     idx = torch.randperm(cali_data[0].size(0))[:b_size]
-            #     activation = {}
-            #     for n, module in qnn.named_modules():
-            #         if isinstance(module, (QuantModule)):
-            #             if "ff.net" in n or "to_q" in n or "to_k" in n or "to_v" in n:
-            #                 print(n)
-            #                 module.register_forward_hook(get_output(n))
-            #     with torch.no_grad():
-            #         output_fp = qnn(cali_data[0][idx].cuda(), cali_data[1][idx].cuda(), cali_data[2][idx].cuda())
-                
-            #     activation['input'] = (cali_data[0][idx].detach().cpu(), cali_data[1][idx].detach().cpu(), cali_data[2][idx].detach().cpu())
-            #     activation['output'] = output_fp.detach().cpu()
-            #     torch.save(activation, os.path.join("fp_activations/", f"activation_{k}.pth"))
-            # sys.exit(0)
-            
-            # qnn.set_quant_state(False, False)
-            # print(cali_data[0].shape, cali_data[1].shape, cali_data[2].shape)
-            # xs_tmp = cali_data[0][0].unsqueeze(0).cuda()
-            # ts_tmp = cali_data[1][0].unsqueeze(0).cuda()
-            # cs_tmp = cali_data[2][0].unsqueeze(0).cuda()
-            # print(xs_tmp.shape, ts_tmp.shape, cs_tmp.shape)
-            # y_tmp = qnn(xs_tmp, ts_tmp, cs_tmp)
-            # print(y_tmp)
-            # print(cali_data[0][128])
-            # sys.exit(0)
-
-            # qnn.set_quant_state(False, False)
-            # def get_output(name):
-            #     def hook(qnn, input, output): 
-            #         # activation[name] = input[0]
-            #         activation[name] = output.detach().cpu()
-            #     return hook
-            # for t in timesteps:
-            #     # print(t)
-            #     hook_handles = []
-            #     activation = {}
-            #     # layer_list = ["emb"]
-            #     layer_list = ["in_layers", "out_layers", "skip", "op"]
-            #     for n, module in qnn.named_modules():
-            #         if isinstance(module, (QuantModule)):
-            #             for layer_name in layer_list:
-            #                 if layer_name in n: 
-            #                     handle = module.register_forward_hook(get_output(n))
-            #                     hook_handles.append(handle)
-            #     qnn.set_timestep(t)
-            #     cali_xs, cali_ts, cali_cs = cali_data
-            #     t_idx = torch.where(cali_ts == t)[0]
-            #     cali_xs_t = cali_xs[t_idx]
-            #     cali_ts_t = cali_ts[t_idx]
-            #     cali_cs_t = cali_cs[t_idx]
-            #     sample_idx = torch.randperm(cali_xs_t.size(0))[:64]
-            #     idx = sample_idx[:4]
-            #     with torch.no_grad():
-            #         output_fp = qnn(cali_xs_t[idx].cuda(), cali_ts_t[idx].cuda(), cali_cs_t[idx].cuda())
-            #     for k in activation.keys():
-            #         activation[k] = activation[k].detach().cpu()
-            #         activation[k] = torch.mean(activation[k], dim=0, keepdim=True)
-            #     torch.save(activation, os.path.join("output/tmp_activations_fp/", f"conv_{t}.pth"))
-            #     for handle in hook_handles:
-            #         handle.remove()
-            # for name in activation.keys():
-            #     print(activation[name].shape)
-            # sys.exit(0)
-
-            # for n, m in qnn.named_modules():
-            #     if isinstance(m, QuantModule):
-            #         # if "proj_in" in n or "proj_out" in n or "in_layers" in n or "out_layers" in n:
-            #         # if "skip" in n or "op" in n:
-            #         if "skip" in n or "out_layers" in n or "in_layers" in n:
-            #             print(n)
-            #             m.set_quant_state(True, False)
-
             qnn.set_quant_state(True, True)
             sampler.model.model.diffusion_model = qnn
 
@@ -942,21 +677,6 @@ def main():
                         if not opt.skip_grid:
                             all_samples.append(x_checked_image_torch)
 
-                        # TODO: Added for intermediate result generation
-                        # sample_inter = intermediates['x_inter']
-                        # print(len(sample_inter))
-                        # for i in range(len(sample_inter)):
-                        #     x_sample_ddim_inter = model.decode_first_stage(sample_inter[i].to('cuda'))
-                        #     x_sample_ddim_inter = torch.clamp((x_sample_ddim_inter + 1.0) / 2.0, min=0.0, max=1.0)
-                        #     x_sample_ddim_inter = x_sample_ddim_inter.cpu().permute(0, 2, 3, 1).numpy()
-                        #     x_checked_image_inter = torch.from_numpy(x_sample_ddim_inter).permute(0, 3, 1, 2)
-                        #     for x_sample in x_checked_image_inter:
-                        #         x_sample = 255. * rearrange(x_sample.cpu().numpy(), 'c h w -> h w c')
-                        #         img = Image.fromarray(x_sample.astype(np.uint8))
-                        #         img.save(os.path.join(sample_path, f"{base_count:05}.png"))
-                        #         base_count += 1
-                                
-
                 if not opt.skip_grid:
                     # additionally, save as grid
                     grid = torch.stack(all_samples, 0)
@@ -978,49 +698,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-# Activation initialization (no running stat, no timewise), use recon_act timewise, asym=False: 2023-10-27-19-58-19 TODO: verify it!!!
-# Activation initialization with timewise (no running stat):2023-10-27-23-39-10
-
-# tmux=0: Verify Activation initialization (no running stat, no timewise), use recon_act timewise, asym=False, a4: 2023-10-28-11-50-20 ????? 
-# tmux=1: a8 version of tmux=0
-# tmux=3: only channelwise , no running stat, a4
-# tmux=5: Activation initialization with timewise (no running stat), not using recon_act timewise yet, asym=False
-
-
-# 10.30
-# tmux=0 w4a8, TODO 0, recon: Fail
-# tmux=1 w4a4, TODO 0, recon: Fail
-# TODO: only reconstruct 1/2 layers, see if it works
-
-# tmux=3 next, examine the effect of self.to_out and self.ff in transformer block, try setting the two to quant state (True, False)
-
-# tmux=5, timewise init, w4a4
-# tmux=6, timewise init, w4a8
-
-
-# Try (Initialization methods)
-# 1. Leave last layer unquantized or  2. Leave first and last layer unquantized: nothing will change, last layer only effects reconstruction
-# 2. Search more closely for delta (BRECQ): no use
-# Conclude:
-# 1. BRECQ / RepQ search does not make difference
-# 2. w4a8: no-channelwise always better
-
-
-
-  # def forward_hook(name):
-#     def hook(model, input, output):
-#         # if len(input[0].shape) == 2:
-#         #     print(name, input[0].shape) 
-#         if input[0].shape[1] == 4096:
-#             print(name, input[0].shape)
-#     return hook
-# for name, module in qnn.named_modules():
-#     if isinstance(module, QuantModule):
-#         module.register_forward_hook(forward_hook(name))
-# for t in timesteps:
-#     qnn.set_timestep(t)
-#     inds = np.random.choice(cali_xs.shape[0], 2, replace=False)
-#     _ = qnn(cali_xs[inds].cuda(), cali_ts[inds].cuda(), cali_cs[inds].cuda())
-# sys.exit(0)
