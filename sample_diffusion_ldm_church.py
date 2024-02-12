@@ -547,50 +547,6 @@ if __name__ == "__main__":
                     logger.info("Doing activation calibration")   
                     # Initialize activation quantization parameters
                     qnn.set_quant_state(True, True)
-
-                    # with torch.no_grad():
-                    #     chosen_timestep = timesteps[0]
-                    #     qnn.set_timestep(chosen_timestep)
-                    #     _ = qnn(cali_xs[:64].cuda(), cali_ts[:64].cuda())
-                    #     # Copy initialized parameters
-                    #     logger.info("Copying parameters to other timesteps")
-                    #     for name, module in qnn.named_modules():
-                    #         if isinstance(module, (QuantModule)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.act_quantizer.quantizer_dict[k] = copy.deepcopy(module.act_quantizer.quantizer_dict[chosen_timestep])
-                    #                     if module.split != 0:
-                    #                         module.act_quantizer_0.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_0.quantizer_dict[chosen_timestep])
-                    #         elif isinstance(module, (QuantBasicTransformerBlock)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.attn1.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_q.quantizer_dict[chosen_timestep])
-                    #                     module.attn1.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_k.quantizer_dict[chosen_timestep])
-                    #                     module.attn1.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_v.quantizer_dict[chosen_timestep])
-                    #                     module.attn1.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_w.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_q.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_k.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_v.quantizer_dict[chosen_timestep])
-                    #                     module.attn2.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_w.quantizer_dict[chosen_timestep])
-                    #         elif isinstance(module, (QuantQKMatMul)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_q.quantizer_dict[chosen_timestep])
-                    #                     module.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_k.quantizer_dict[chosen_timestep])
-                    #         elif isinstance(module, (QuantSMVMatMul)):
-                    #             for k in timesteps:
-                    #                 if k != chosen_timestep:
-                    #                     module.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_v.quantizer_dict[chosen_timestep])
-                    #                     module.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_w.quantizer_dict[chosen_timestep])
-                    #     logger.info("Copying done!")
-
-                    #     if opt.running_stat:
-                    #         logger.info('Running stat for activation quantization')
-                    #         qnn.set_running_stat(True)
-                    #         for i in trange(int(cali_xs.size(0) / 64)):
-                    #             _ = qnn(cali_xs[i * 64:(i + 1) * 64].cuda(), 
-                    #                 cali_ts[i * 64:(i + 1) * 64].cuda())
-                    #         qnn.set_running_stat(False)
                     
                     # Timewise initialization
                     with torch.no_grad():
@@ -608,16 +564,6 @@ if __name__ == "__main__":
                                 _ = qnn(cali_xs[i * 64:(i + 1) * 64].cuda(), 
                                     cali_ts[i * 64:(i + 1) * 64].cuda())
 
-                            ## timewise running stat
-                            # for k in trange(len(timesteps)):
-                            #     t = timesteps[k]
-                            #     qnn.set_timestep(t)
-                            #     inds = torch.where(cali_ts == t)[0]
-                            #     cali_xs_t = cali_xs[inds]
-                            #     cali_ts_t = cali_ts[inds]
-                            #     for i in range(int(cali_xs_t.size(0) / 64)):
-                            #         _ = qnn(cali_xs_t[i * 64:(i + 1) * 64].cuda(), 
-                            #             cali_ts_t[i * 64:(i + 1) * 64].cuda())
                             qnn.set_running_stat(False)
 
                     qnn.set_quant_state(weight_quant=True, act_quant=True)   
