@@ -159,13 +159,7 @@ class UniformAffineQuantizer(nn.Module):
         else:
             x_quant = torch.clamp(x_int, 0, self.n_levels - 1)
         x_dequant = (x_quant - self.zero_point) * self.delta
-
-        # if not self.channel_wise and not self.running_stat:
-        #     print("Used !!!!!")
-        #     if len(x.shape) == 3:
-        #         mean_x = torch.mean(torch.mean(x.detach().cpu(), dim=0), dim=0)
-        #         _, max_idx = torch.topk(mean_x, 3)
-        #         x_dequant[:, :, max_idx] = x[:, :, max_idx]
+        
         return x_dequant
     
     def act_momentum_update(self, x: torch.Tensor, act_range_momentum: float = 0.95):
@@ -345,25 +339,6 @@ class ActUniformQuantizer(nn.Module):
         if not self.sym:
             self.zero_point = (-self.x_min / delta).round() if not (self.sym or self.always_zero) else 0
         self.delta = torch.nn.Parameter(delta)
-        
-        # if len(x.shape) == 3:
-        #     x_min = torch.amin(x, dim=(0, 1)).reshape(1, 1, -1)
-        #     x_max = torch.amax(x, dim=(0, 1)).reshape(1, 1, -1)
-        # elif len(x.shape) == 4:
-        #     x_min = torch.amin(x, dim=(0, 2, 3)).reshape(1, -1, 1, 1)
-        #     x_max = torch.amax(x, dim=(0, 2, 3)).reshape(1, -1, 1, 1)
-        # else:
-        #     x_min = torch.amin(x, dim=0).reshape(1, -1)
-        #     x_max = torch.amax(x, dim=0).reshape(1, -1)
-        # self.x_min = self.x_min * act_range_momentum + x_min * (1 - act_range_momentum)
-        # self.x_max = self.x_max * act_range_momentum + x_max * (1 - act_range_momentum)
-
-        # delta = (self.x_max - self.x_min) / (self.n_levels - 1)
-
-        # delta = torch.clamp(delta, min=1e-8)
-        # if not self.sym:
-        #     self.zero_point = (-self.x_min / delta).round() if not (self.sym or self.always_zero) else 0
-        # self.delta = torch.nn.Parameter(delta)
 
     def init_quantization_scale(self, x: torch.Tensor, channel_wise: bool = False):
         delta, zero_point = None, None
