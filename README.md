@@ -35,3 +35,15 @@ python txt2img.py --prompt "a photograph of an astronaut riding a horse" --plms 
 
 ## Acknowledgement
 This project is heavily based on [LDM](https://github.com/CompVis/latent-diffusion/tree/main) and [Q-Diffusion](https://github.com/Xiuyu-Li/q-diffusion/tree/master).
+
+## If you find this work helpful, please consider citing or paper:
+```
+@misc{wang2024quest,
+      title={QuEST: Low-bit Diffusion Model Quantization via Efficient Selective Finetuning}, 
+      author={Haoxuan Wang and Yuzhang Shang and Zhihang Yuan and Junyi Wu and Yan Yan},
+      year={2024},
+      eprint={2402.03666},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
+```
