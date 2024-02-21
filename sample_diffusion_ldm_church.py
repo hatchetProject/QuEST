@@ -21,6 +21,7 @@ from qdiff import (
 from qdiff.adaptive_rounding import AdaRoundQuantizer
 from qdiff.quant_layer import UniformAffineQuantizer, TimewiseUniformQuantizer
 from qdiff.utils import resume_cali_model, get_train_samples
+from qdiff.post_layer_recon import *
 from collections import Counter
 import shutil
 import copy

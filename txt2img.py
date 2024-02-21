@@ -568,8 +568,8 @@ def main():
                 torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt.pth"))
             torch.cuda.empty_cache()
         
-            pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath)
-            pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath)
+            pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
+            pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
             qnn.set_quant_state(True, True)
 
             logger.info("Saving calibrated quantized UNet model")

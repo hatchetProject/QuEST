@@ -21,6 +21,7 @@ from qdiff import (
 from qdiff.adaptive_rounding import AdaRoundQuantizer
 from qdiff.quant_layer import UniformAffineQuantizer, TimewiseUniformQuantizer
 from qdiff.utils import resume_cali_model, get_train_samples
+from qdiff.post_layer_recon import *
 from collections import Counter
 import shutil
 import copy
@@ -572,8 +573,8 @@ if __name__ == "__main__":
                                 m.zero_point_list = nn.Parameter(m.zero_point_list.float())
                 torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))         
             
-            pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
-            pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
+            pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir, cond=True)
+            pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir, cond=True)
 
             logger.info("Saving calibrated quantized UNet model")
             qnn.save_dict_params()
