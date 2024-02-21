@@ -262,10 +262,7 @@ def cross_attn_forward(self, x, context=None, mask=None, timestep=None):
         self.act_quantizer_v.quantizer_dict[timestep].ignore_quant = False
         out = einsum('b i j, b j d -> b i d', self.act_quantizer_w(attn, timestep), self.act_quantizer_v(v, timestep))
     else:
-        self.act_quantizer_w.quantizer_dict[timestep].ignore_quant = True
-        self.act_quantizer_v.quantizer_dict[timestep].ignore_quant = True
-        out = einsum('b i j, b j d -> b i d', self.act_quantizer_w(attn, timestep), self.act_quantizer_v(v, timestep))
-        # out = einsum('b i j, b j d -> b i d', attn, v)
+        out = einsum('b i j, b j d -> b i d', attn, v)
     out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
 
     return self.to_out(out)
@@ -295,12 +292,6 @@ class QuantBasicTransformerBlock(BaseQuantBlock):
             self.attn2.act_quantizer_k = TimewiseUniformQuantizer(self.list_timesteps, **act_quant_params)
             self.attn2.act_quantizer_v = TimewiseUniformQuantizer(self.list_timesteps, **act_quant_params)
         else:
-            # self.attn1.act_quantizer_q = UniformAffineQuantizer(**act_quant_params)
-            # self.attn1.act_quantizer_k = UniformAffineQuantizer(**act_quant_params)
-            # self.attn1.act_quantizer_v = UniformAffineQuantizer(**act_quant_params)
-            # self.attn2.act_quantizer_q = UniformAffineQuantizer(**act_quant_params)
-            # self.attn2.act_quantizer_k = UniformAffineQuantizer(**act_quant_params)
-            # self.attn2.act_quantizer_v = UniformAffineQuantizer(**act_quant_params)
             self.attn1.act_quantizer_q = ActUniformQuantizer(**act_quant_params)
             self.attn1.act_quantizer_k = ActUniformQuantizer(**act_quant_params)
             self.attn1.act_quantizer_v = ActUniformQuantizer(**act_quant_params)
@@ -316,10 +307,6 @@ class QuantBasicTransformerBlock(BaseQuantBlock):
             self.attn1.act_quantizer_w = TimewiseUniformQuantizer(self.list_timesteps, **act_quant_params_w)
             self.attn2.act_quantizer_w = TimewiseUniformQuantizer(self.list_timesteps, **act_quant_params_w)
         else:
-            # self.attn1.act_quantizer_w = UniformAffineQuantizer(**act_quant_params_w)
-            # self.attn2.act_quantizer_w = UniformAffineQuantizer(**act_quant_params_w)
-            # self.attn1.act_quantizer_w = LogSqrt2Quantizer(**act_quant_params_w)
-            # self.attn2.act_quantizer_w = LogSqrt2Quantizer(**act_quant_params_w)
             self.attn1.act_quantizer_w = ActUniformQuantizer(**act_quant_params_w)
             self.attn2.act_quantizer_w = ActUniformQuantizer(**act_quant_params_w)
 
