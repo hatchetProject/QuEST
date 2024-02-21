@@ -10,6 +10,7 @@ from qdiff.quant_layer import QuantModule, UniformAffineQuantizer, TimewiseUnifo
 from qdiff.quant_block import BaseQuantBlock, QuantBasicTransformerBlock, QuantQKMatMul, QuantSMVMatMul
 from qdiff.quant_model import QuantModel
 from qdiff.adaptive_rounding import AdaRoundQuantizer
+import copy
 
 logger = logging.getLogger(__name__)
 
@@ -386,8 +387,12 @@ def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, act_quant_mode
     qnn.set_quant_state(True, False)
     qnn.set_timestep(timesteps[0])
     
-    cali_xs, cali_ts = cali_data
-    _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
+    if cond:
+        cali_xs, cali_ts, cali_cs = cali_data
+        _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
+    else:
+        cali_xs, cali_ts = cali_data
+        _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
     
     # change weight quantizer from uniform to adaround
     convert_adaround(qnn)
@@ -422,10 +427,17 @@ def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, act_quant_mode
             with torch.no_grad():
                 for i in trange(len(timesteps)):
                     qnn.set_timestep(timesteps[i])
-                    _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
-        #         qnn.set_timestep(timesteps[0])
+                    if cond:
+                        _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
+                    else:
+                        _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
+        # if timesteps is not None:
+        #     qnn.set_timestep(timesteps[0])
         #     with torch.no_grad():
-        #         _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
+        #         if cond:
+        #             _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
+        #         else:
+        #             _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
         #         for name, module in qnn.named_modules():
         #             if isinstance(module, (QuantModule)):
         #                 for k in timesteps[1:]:

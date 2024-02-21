@@ -23,7 +23,7 @@ from torch import einsum
 logger = logging.getLogger(__name__)
 
 
-def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, timesteps: list=None, outpath: str=None,):
+def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, timesteps: list=None, outpath: str=None, cond: bool=False):
     round_mode = 'learned_hard_sigmoid'
     device = 'cuda'
     print(timesteps)
@@ -36,16 +36,38 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
 
     for name, module in model.named_modules():
         if isinstance(module, (QuantModule)):
-            if "qkv" in name:
-                module.weight.requires_grad = True
-                opt_params_w += [module.weight]
-                if module.bias is not None:
-                    module.bias.requires_grad = True
-                    opt_params_w += [module.bias]
+            if cond:
+                # For SD: Use only "ff.net", for ImageNet, you can use all
+                if "ff.net" in name or "to_q" in name:
+                    logger.info(f"{name} added") 
+                    module.weight.requires_grad = True
+                    opt_params_w += [module.weight]
+                    if module.bias is not None:
+                        module.bias.requires_grad = True
+                        opt_params_w += [module.bias]
+                if "attn1" in name:
+                    if "to_k" in name or "to_v" in name:
+                        logger.info(f"{name} added") 
+                        module.weight.requires_grad = True
+                        opt_params_w += [module.weight]
+                        if module.bias is not None:
+                            module.bias.requires_grad = True
+                            opt_params_w += [module.bias]
+            else:
+                if "qkv" in name:
+                    module.weight.requires_grad = True
+                    opt_params_w += [module.weight]
+                    if module.bias is not None:
+                        module.bias.requires_grad = True
+                        opt_params_w += [module.bias]
     optimizer_w = torch.optim.Adam(opt_params_w, lr=1e-5)
 
     scheduler_w = None
-    cali_data = (cali_data[0].cpu(), cali_data[1].cpu())
+
+    if cond:
+        cali_data = (cali_data[0].cpu(), cali_data[1].cpu(), cali_data[2].cpu())
+    else:
+        cali_data = (cali_data[0].cpu(), cali_data[1].cpu())
     # Get intermediate activations
     activation = {}
     def get_output(name):
@@ -165,7 +187,7 @@ def get_labels_timewise(model, cali_data, timestep, layer_list, save_folder):
     print("Generation finished")
 
 
-def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, timesteps: list=None, outpath: str=None,):
+def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, timesteps: list=None, outpath: str=None, cond: bool=False):
     round_mode = 'learned_hard_sigmoid'
     device = 'cuda'
     print(timesteps)
@@ -187,8 +209,11 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                     opt_params_w += [module.bias]
                 module.weight_quantizer.alpha.requires_grad = True
     optimizer_w = torch.optim.Adam(opt_params_w, lr=1e-5)
-   
-    cali_data = (cali_data[0].cpu(), cali_data[1].cpu())
+    
+    if cond:
+        cali_data = (cali_data[0].cpu(), cali_data[1].cpu(), cali_data[2].cpu())
+    else:
+        cali_data = (cali_data[0].cpu(), cali_data[1].cpu())
     # Get intermediate activations
     activation = {}
     def get_output(name):
@@ -406,6 +431,7 @@ def pd_optimizer_together(model, cali_data, opt, logger, iters: int = 20000, tim
                 handle.remove()
             torch.cuda.empty_cache()
     model.eval()
+
 
 class LossFunction:
     def __init__(self,
