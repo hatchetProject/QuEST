@@ -19,7 +19,8 @@ conda activate quest
 ```
 ### Usage
 1. For Latent Diffusion and Stable Diffusion experiments, first download relvant checkpoints following the instructions in the [latent-diffusion](https://github.com/CompVis/latent-diffusion/tree/main) and [stable-diffusion](https://github.com/CompVis/stable-diffusion#weights) repos from CompVis. We currently use sd-v1-4.ckpt for Stable Diffusion.
-2. Use the following commands to reproduce the models. If setting act_bit to 4, please change the 'channel_wise' argument to True in aq_params in the code. Though termed 'channelwise', it is token-wise actually and does not effect computation efficiency.
+2. The calibration data for LSUN-Bedrooms/Churches and Stable Diffusion (COCO) can be downloaded from the [Q-Diffusion](https://github.com/Xiuyu-Li/q-diffusion/tree/master) repository. We will upload the calibration data for ImageNet soon.
+3. Use the following commands to reproduce the models. If setting act_bit to 4, please change the 'channel_wise' argument to True in aq_params in the code. Though termed 'channelwise', it is token-wise actually and does not effect computation efficiency.
 ```
 # LSUN-Bedrooms (LDM-4)
 python sample_diffusion_ldm_bedroom.py -r models/ldm/lsun_beds256/model.ckpt -n 100 --batch_size 20 -c 200 -e 1.0  --seed 40 --ptq  --weight_bit <4 or 8> --quant_mode qdiff --cali_st 20 --cali_batch_size 32 --cali_n 256 --quant_act --act_bit <4 or 8> --a_sym --a_min_max --running_stat --cali_data_path <cali_data_path> -l <output_path>
