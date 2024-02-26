@@ -207,7 +207,7 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                 if module.bias is not None:
                     module.bias.requires_grad = True
                     opt_params_w += [module.bias]
-                module.weight_quantizer.alpha.requires_grad = True
+                # module.weight_quantizer.alpha.requires_grad = True
     optimizer_w = torch.optim.Adam(opt_params_w, lr=1e-5)
     
     if cond:
