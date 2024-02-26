@@ -599,40 +599,6 @@ if __name__ == "__main__":
             qnn.set_quant_state(weight_quant=True, act_quant=True)
             model.model.diffusion_model = qnn
 
-            # Get ff.net output activations
-            qnn.set_quant_state(True, True)
-            activation = {}
-            def get_activation(name):
-                def hook(model, input, output): 
-                    if name in activation:
-                        activation[name] = torch.cat((activation[name], input[0].detach().cpu()), 0)
-                    else:
-                        activation[name] = input[0].detach().cpu()
-                return hook
-            outlier_name = "ff.net"
-            for name, module in qnn.named_modules():
-                if outlier_name in name:
-                    if "act" not in name and "weight" not in name:
-                        module.register_forward_hook(get_activation(name))
-            cali_xs, cali_ts, cali_conds = cali_data
-            cali_xs = cali_xs.contiguous().cuda()
-            cali_ts = cali_ts.contiguous().cuda()
-            cali_conds = cali_conds.contiguous().cuda()
-            
-            b_size = 64
-            for i in range(5):
-                with torch.no_grad():
-                    _ = qnn(cali_xs[i*b_size:(i+1)*b_size], cali_ts[i*b_size:(i+1)*b_size], cali_conds[i*b_size:(i+1)*b_size])
-            for k in activation.keys():
-                print(k, activation[k].shape)
-                activation[k] = activation[k].numpy()
-                activation[k] = np.mean(activation[k], axis=0)
-                print(k, activation[k].shape)
-            print("Saving activation values")
-            for k in activation.keys():
-                np.save(os.path.join(logdir, f"{k}.npy"), activation[k])
-            sys.exit(0)
-
     # write config out
     sampling_file = os.path.join(logdir, "sampling_config.yaml")
     sampling_conf = vars(opt)
