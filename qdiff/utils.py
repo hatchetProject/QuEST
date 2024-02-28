@@ -325,11 +325,6 @@ def quantize_model_till(model: QuantModule, layer: Union[QuantModule, BaseQuantB
 def get_train_samples(args, sample_data, custom_steps=None):
     num_samples, num_st = int(args.cali_n), args.cali_st
     custom_steps = args.custom_steps if custom_steps is None else custom_steps
-    # if num_st == 1:
-    #     xs = sample_data[:num_samples]
-    #     ts = (torch.ones(num_samples) * 800)
-    # else:
-    # get the real number of timesteps (especially for DDIM)
     nsteps = len(sample_data["ts"])
     assert(nsteps >= custom_steps)
     timesteps = list(range(0, nsteps, nsteps//num_st))
@@ -379,7 +374,7 @@ def convert_adaround(model):
             convert_adaround(module)
 
 
-def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, act_quant_mode='qdiff', cond=False, timesteps=None):
+def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, cond=False, timesteps=None):
     print("Loading quantized model checkpoint")
     ckpt = torch.load(ckpt_path, map_location='cpu')
     
@@ -406,7 +401,7 @@ def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, act_quant_mode
     keys = [key for key in ckpt.keys() if "act" in key]
     for key in keys:
         del ckpt[key]
-    qnn.load_state_dict(ckpt, strict=(act_quant_mode=='qdiff'))
+    qnn.load_state_dict(ckpt, strict=True)
     qnn.set_quant_state(weight_quant=True, act_quant=False)
     
     for m in qnn.model.modules():            # delta and zero_point were saved as parameters, now turn them into numbers
@@ -423,46 +418,39 @@ def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, act_quant_mode
         print("Initializing act quantization parameters")
         qnn.set_quant_state(True, True)
         
-        if timesteps is not None:
-            with torch.no_grad():
-                for i in trange(len(timesteps)):
-                    qnn.set_timestep(timesteps[i])
-                    if cond:
-                        _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
-                    else:
-                        _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
         # if timesteps is not None:
-        #     qnn.set_timestep(timesteps[0])
         #     with torch.no_grad():
-        #         if cond:
-        #             _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
-        #         else:
-        #             _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
-        #         for name, module in qnn.named_modules():
-        #             if isinstance(module, (QuantModule)):
-        #                 for k in timesteps[1:]:
-        #                     module.act_quantizer.quantizer_dict[k] = copy.deepcopy(module.act_quantizer.quantizer_dict[timesteps[0]])
-        #                     if module.split != 0:
-        #                         module.act_quantizer_0.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_0.quantizer_dict[timesteps[0]])
-        #             elif isinstance(module, (QuantBasicTransformerBlock)):
-        #                 for k in timesteps[1:]:
-        #                     module.attn1.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_q.quantizer_dict[timesteps[0]])
-        #                     module.attn1.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_k.quantizer_dict[timesteps[0]])
-        #                     module.attn1.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_v.quantizer_dict[timesteps[0]])
-        #                     module.attn1.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_w.quantizer_dict[timesteps[0]])
-        #                     module.attn2.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_q.quantizer_dict[timesteps[0]])
-        #                     module.attn2.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_k.quantizer_dict[timesteps[0]])
-        #                     module.attn2.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_v.quantizer_dict[timesteps[0]])
-        #                     module.attn2.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_w.quantizer_dict[timesteps[0]])
-        #             elif isinstance(module, (QuantQKMatMul)):
-        #                 for k in timesteps[1:]:
-        #                     module.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_q.quantizer_dict[timesteps[0]])
-        #                     module.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_k.quantizer_dict[timesteps[0]])
-        #             elif isinstance(module, (QuantSMVMatMul)):
-        #                 for k in timesteps[1:]:
-        #                     module.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_v.quantizer_dict[timesteps[0]])
-        #                     module.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_w.quantizer_dict[timesteps[0]])
-        # print("Copying Done")
+        #         for i in trange(len(timesteps)):
+        #             qnn.set_timestep(timesteps[i])
+        #             if cond:
+        #                 _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
+        #             else:
+        #                 _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
+        if timesteps is not None:
+            qnn.set_timestep(timesteps[0])
+            with torch.no_grad():
+                if cond:
+                    _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
+                else:
+                    _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
+                for _, module in qnn.named_modules():
+                    if isinstance(module, (QuantModule)):
+                        for k in timesteps[1:]:
+                            module.act_quantizer.quantizer_dict[k] = copy.deepcopy(module.act_quantizer.quantizer_dict[timesteps[0]])
+                            if module.split != 0:
+                                module.act_quantizer_0.quantizer_dict[k] = copy.deepcopy(module.act_quantizer_0.quantizer_dict[timesteps[0]])
+                    elif isinstance(module, (QuantBasicTransformerBlock)):
+                        for k in timesteps[1:]:
+                            module.attn1.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_q.quantizer_dict[timesteps[0]])
+                            module.attn1.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_k.quantizer_dict[timesteps[0]])
+                            module.attn1.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_v.quantizer_dict[timesteps[0]])
+                            module.attn1.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn1.act_quantizer_w.quantizer_dict[timesteps[0]])
+                            module.attn2.act_quantizer_q.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_q.quantizer_dict[timesteps[0]])
+                            module.attn2.act_quantizer_k.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_k.quantizer_dict[timesteps[0]])
+                            module.attn2.act_quantizer_v.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_v.quantizer_dict[timesteps[0]])
+                            module.attn2.act_quantizer_w.quantizer_dict[k] = copy.deepcopy(module.attn2.act_quantizer_w.quantizer_dict[timesteps[0]])
+
+        print("Copying Done")
         print("Loading quantized model checkpoint again")
         for m in qnn.model.modules():
             if isinstance(m, AdaRoundQuantizer):

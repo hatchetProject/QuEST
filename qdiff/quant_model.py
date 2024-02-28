@@ -52,13 +52,6 @@ class QuantModel(nn.Module):
                 if self.specials[type(child_module)] in [QuantBasicTransformerBlock]:
                     setattr(module, name, self.specials[type(child_module)](child_module,
                         act_quant_params, sm_abit=self.sm_abit, timewise=timewise, list_timesteps=list_timesteps))
-                elif self.specials[type(child_module)] == QuantSMVMatMul:
-                    setattr(module, name, self.specials[type(child_module)](
-                        act_quant_params, sm_abit=self.sm_abit, timewise=timewise, list_timesteps=list_timesteps))
-                elif self.specials[type(child_module)] == QuantQKMatMul:
-                    setattr(module, name, self.specials[type(child_module)](
-                        act_quant_params, timewise=timewise, list_timesteps=list_timesteps))
-                else:
                     setattr(module, name, self.specials[type(child_module)](child_module, 
                         act_quant_params))
             else:

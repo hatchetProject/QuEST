@@ -30,27 +30,19 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
             delattr(m, "delta_list")
             m.delta_list = delta_data
     opt_params_w = []
+
     for name, module in model.named_modules():
         if isinstance(module, (QuantModule)):
-            if "ff.net" in name or "to_q" in name:
-                logger.info(f"{name} added") 
+            if "qkv" in name:
                 module.weight.requires_grad = True
                 opt_params_w += [module.weight]
                 if module.bias is not None:
                     module.bias.requires_grad = True
                     opt_params_w += [module.bias]
-            if "attn1" in name:
-                if "to_k" in name or "to_v" in name:
-                    logger.info(f"{name} added") 
-                    module.weight.requires_grad = True
-                    opt_params_w += [module.weight]
-                    if module.bias is not None:
-                        module.bias.requires_grad = True
-                        opt_params_w += [module.bias]
-
     optimizer_w = torch.optim.Adam(opt_params_w, lr=1e-5)
+
     scheduler_w = None
-    cali_data = (cali_data[0].cpu(), cali_data[1].cpu(), cali_data[2].cpu())
+    cali_data = (cali_data[0].cpu(), cali_data[1].cpu())
     # Get intermediate activations
     activation = {}
     def get_output(name):
@@ -59,10 +51,8 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
         return hook
     loss_func = torch.nn.MSELoss()
 
-    layer_list = ["ff.net", "to_q", "attn1.to_k", "attn1.to_v"]
-    save_folder = "output/fp_activations_timewise"
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
+    layer_list = ["qkv"]
+    save_folder = "output/fp_activations_timewise0"
 
     for epoch in range(20):
         for t in timesteps:
@@ -74,7 +64,8 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
                 if "act_quantizer" in n and "emb" not in n:
                     m.current_delta.requires_grad = True
                     opt_params_a += [m.current_delta]
-            optimizer_a = torch.optim.Adam(opt_params_a, lr=1e-4)  # original: 1e-4
+            optimizer_a = torch.optim.Adam(opt_params_a, lr=1e-4)
+            
             scheduler_a = None
             optimizer_a.zero_grad()
             optimizer_w.zero_grad()
@@ -93,12 +84,12 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
             model.train()
             model.set_quant_state(True, True)
             for j in range(num):
+                
                 activation_fp = torch.load(os.path.join(save_folder, f"activation_{j}.pth"))
                 for i in range(activation_fp["input"][0].shape[0]):
                     err = 0
                     output_quant = model(activation_fp["input"][0][i].unsqueeze(0).cuda(), 
-                                        activation_fp["input"][1][i].unsqueeze(0).cuda(), 
-                                        activation_fp["input"][2][i].unsqueeze(0).cuda())
+                                        activation_fp["input"][1][i].unsqueeze(0).cuda())
                     for k in activation.keys():
                         head = int(activation_fp[k].shape[0] / activation_fp["input"][0].shape[0]) # designed for act_quantizer_w/v's output
                         # err += loss_func(activation[k], activation_fp[k][i*head:(i+1)*head].cuda())
@@ -106,7 +97,7 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
                     
                     err /= activation_fp["input"][0].shape[0]
                     err.backward()
-
+             
                 # Using gradient accumulation to deal with small batch size
                 if j % 2 == 0:
                     logger.info(f"Error: {err}")
@@ -116,12 +107,15 @@ def pd_optimize_timewise(model, cali_data, opt, logger, iters: int = 20000, time
                     scheduler_w.step()
                 if scheduler_a:
                     scheduler_a.step()
+               
                 optimizer_a.zero_grad()
                 optimizer_w.zero_grad()
+              
             for handle in hook_handles:
                 handle.remove()
             torch.cuda.empty_cache()
-
+    model.eval()
+    
 
 def get_labels_timewise(model, cali_data, timestep, layer_list, save_folder):
     model.eval()
@@ -138,13 +132,12 @@ def get_labels_timewise(model, cali_data, timestep, layer_list, save_folder):
                 if layer_name in n: 
                     handle = module.register_forward_hook(get_output(n))
                     hook_handles.append(handle)
-    cali_xs, cali_ts, cali_cs = cali_data
+    cali_xs, cali_ts = cali_data
     
     model.set_timestep(timestep)
     t_idx = torch.where(cali_ts == timestep)[0]
     cali_xs_t = cali_xs[t_idx]
     cali_ts_t = cali_ts[t_idx]
-    cali_cs_t = cali_cs[t_idx]
 
     print("Generating FP outputs for timestep {}".format(timestep))
     sample_idx = torch.randperm(cali_xs_t.size(0))[:64]
@@ -153,8 +146,8 @@ def get_labels_timewise(model, cali_data, timestep, layer_list, save_folder):
         for k in trange(16):
             activation = {}
             idx = sample_idx[k*b_size:(k+1)*b_size]
-            output_fp = model(cali_xs_t[idx].cuda(), cali_ts_t[idx].cuda(), cali_cs_t[idx].cuda())
-            activation['input'] = (cali_xs_t[idx].detach().cpu(), cali_ts_t[idx].detach().cpu(), cali_cs_t[idx].detach().cpu())
+            output_fp = model(cali_xs_t[idx].cuda(), cali_ts_t[idx].cuda())
+            activation['input'] = (cali_xs_t[idx].detach().cpu(), cali_ts_t[idx].detach().cpu())
             activation['output'] = output_fp.detach().cpu()
             torch.save(activation, os.path.join(save_folder, f"activation_{k}.pth"))
     for handle in hook_handles:
@@ -163,14 +156,13 @@ def get_labels_timewise(model, cali_data, timestep, layer_list, save_folder):
 
 
 def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, timesteps: list=None, outpath: str=None,):
-    print(timesteps)
     for m in model.modules():
         if isinstance(m, TimewiseUniformQuantizer):
             delta_data = m.delta_list.data
             delattr(m, "delta_list")
             m.delta_list = delta_data
     opt_params_w = []
-
+    
     for name, module in model.named_modules():
         if isinstance(module, (QuantModule)):
             if "emb_layer" in name:
@@ -180,9 +172,10 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                 if module.bias is not None:
                     module.bias.requires_grad = True
                     opt_params_w += [module.bias]
-                module.weight_quantizer.alpha.requires_grad = True   
+                module.weight_quantizer.alpha.requires_grad = True
     optimizer_w = torch.optim.Adam(opt_params_w, lr=1e-5)
-    cali_data = (cali_data[0].cpu(), cali_data[1].cpu(), cali_data[2].cpu())
+   
+    cali_data = (cali_data[0].cpu(), cali_data[1].cpu())
     # Get intermediate activations
     activation = {}
     def get_output(name):
@@ -204,7 +197,6 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                 m.current_delta.requires_grad = True
                 opt_params_a += [m.current_delta]
         optimizer_a = torch.optim.Adam(opt_params_a, lr=1e-5)
-    
         scheduler_a = None
         scheduler_w = None
         optimizer_a.zero_grad()
@@ -221,15 +213,14 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                         hook_handles.append(handle)
         num = len(os.listdir(save_folder))
         model.set_quant_state(True, True)
-        for epoch in range(300):
+        for epoch in range(200):
             total_err = 0
             for j in range(num):
                 activation_fp = torch.load(os.path.join(save_folder, f"activation_{j}.pth"))
                 for i in range(activation_fp["input"][0].shape[0]):
                     err = 0
                     output_quant = model(activation_fp["input"][0][i].unsqueeze(0).cuda(), 
-                                        activation_fp["input"][1][i].unsqueeze(0).cuda(), 
-                                        activation_fp["input"][2][i].unsqueeze(0).cuda())
+                                        activation_fp["input"][1][i].unsqueeze(0).cuda())
                     for k in activation.keys():
                         head = int(activation_fp[k].shape[0] / activation_fp["input"][0].shape[0]) # designed for act_quantizer_w/v's output
                         err += loss_func(activation[k], activation_fp[k][i*head:(i+1)*head].cuda())
@@ -238,11 +229,10 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                     err /= activation_fp["input"][0].shape[0]
                     err.backward()
                     total_err += err
-        
+
                 # Using gradient accumulation to deal with small batch size
                 optimizer_w.step()
                 optimizer_a.step()
-              
                 if scheduler_w:
                     scheduler_w.step()
                 if scheduler_a:
@@ -250,11 +240,12 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                 optimizer_a.zero_grad()
                 optimizer_w.zero_grad()
             if epoch % 10 == 0:
-                logger.info(f"[Current timestep: {t}] Current epoch: {epoch}: Error: {total_err/num}")
+                logger.info(f"[Timestep {t}, Epoch {epoch}] Error: {total_err/num}")
+            
         for handle in hook_handles:
             handle.remove()
         torch.cuda.empty_cache()
-
+    
     # Reset the params to not require grad
     for name, module in model.named_modules():
         if isinstance(module, (QuantModule)):
@@ -265,7 +256,9 @@ def pd_optimize_timeembed(model, cali_data, opt, logger, iters: int = 20000, tim
                 if module.bias is not None:
                     module.bias.requires_grad = False
                     opt_params_w += [module.bias]
-                module.weight_quantizer.alpha.requires_grad = False   
+                module.weight_quantizer.alpha.requires_grad = False
+
+
     model.eval()
 
 
@@ -285,13 +278,12 @@ def get_timeembed_labels(model, cali_data, timestep, layer_list, save_folder):
                 if layer_name in n: 
                     handle = module.register_forward_hook(get_output(n))
                     hook_handles.append(handle)
-    cali_xs, cali_ts, cali_cs = cali_data
+    cali_xs, cali_ts = cali_data
     
     model.set_timestep(timestep)
     t_idx = torch.where(cali_ts == timestep)[0]
     cali_xs_t = cali_xs[t_idx]
     cali_ts_t = cali_ts[t_idx]
-    cali_cs_t = cali_cs[t_idx]
     print("Generating FP outputs for timestep {}".format(timestep))
     sample_idx = torch.randperm(cali_xs_t.size(0))[:64]
     b_size = 2
@@ -299,8 +291,8 @@ def get_timeembed_labels(model, cali_data, timestep, layer_list, save_folder):
         for k in trange(4):
             activation = {}
             idx = sample_idx[k*b_size:(k+1)*b_size]
-            output_fp = model(cali_xs_t[idx].cuda(), cali_ts_t[idx].cuda(), cali_cs_t[idx].cuda())     
-            activation['input'] = (cali_xs_t[idx].detach().cpu(), cali_ts_t[idx].detach().cpu(), cali_cs_t[idx].detach().cpu())
+            output_fp = model(cali_xs_t[idx].cuda(), cali_ts_t[idx].cuda())
+            activation['input'] = (cali_xs_t[idx].detach().cpu(), cali_ts_t[idx].detach().cpu())
             activation['output'] = output_fp.detach().cpu()
             torch.save(activation, os.path.join(save_folder, f"activation_{k}.pth"))
     for handle in hook_handles:
