@@ -29,7 +29,7 @@ from qdiff.utils import resume_cali_model, get_train_samples
 from diffusers.pipelines.stable_diffusion.safety_checker import StableDiffusionSafetyChecker
 from transformers import AutoFeatureExtractor
 from qdiff.quant_block import QuantBasicTransformerBlock, QuantResBlock, QuantQKMatMul, QuantSMVMatMul
-from qdiff.post_layer_recon import *
+from qdiff.post_layer_recon_sd import *
 import sys
 import shutil
 import copy
@@ -424,7 +424,7 @@ def main():
             
             if opt.resume:
                 cali_data_resume = (torch.randn(1, 4, 64, 64), torch.randint(0, 1000, (1,)), torch.randn(1, 77, 768))
-                resume_cali_model(qnn, opt.cali_ckpt, cali_data_resume, opt.quant_act, "qdiff", cond=opt.cond, timesteps=timesteps)
+                resume_cali_model(qnn, opt.cali_ckpt, cali_data_resume, opt.quant_act, cond=opt.cond, timesteps=timesteps)
                 qnn.set_quant_state(True, True)
             else:
                 cali_xs, cali_ts, cali_cs = cali_data

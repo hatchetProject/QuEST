@@ -21,12 +21,10 @@ from qdiff import (
 from qdiff.adaptive_rounding import AdaRoundQuantizer
 from qdiff.quant_layer import UniformAffineQuantizer, TimewiseUniformQuantizer
 from qdiff.utils import resume_cali_model, get_train_samples
-from qdiff.post_layer_recon import *
 from collections import Counter
 import shutil
 import copy
-
-from qdiff.post_layer_recon import *
+from qdiff.post_layer_recon_uncond import *
 
 
 logger = logging.getLogger(__name__)
@@ -504,7 +502,7 @@ if __name__ == "__main__":
                 image_size = config.model.params.image_size
                 channels = config.model.params.channels
                 cali_data_resume = (torch.randn(1, channels, image_size, image_size), torch.randint(0, 1000, (1,)))
-                resume_cali_model(qnn, opt.cali_ckpt, cali_data_resume, opt.quant_act, "qdiff", cond=False, timesteps=timesteps)
+                resume_cali_model(qnn, opt.cali_ckpt, cali_data_resume, opt.quant_act, cond=False, timesteps=timesteps)
             else:
                 cali_xs, cali_ts = cali_data
                 if opt.resume_w:
@@ -609,7 +607,6 @@ if __name__ == "__main__":
                             else:
                                 m.zero_point_list = nn.Parameter(m.zero_point_list)
                 torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))
-
 
             pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
             pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
