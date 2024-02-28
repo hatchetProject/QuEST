@@ -11,9 +11,9 @@ On Stable Diffusion v1.4:
 ## Update Log 
 We would fisrt like to thank your interest in our work. The current repository is under reconstruction for combining different settings. Using the current code is fine but may encounter unexpected bugs. Apologies for this inconvenience!
 
-(2024.2.28) Reorganized the code structures.
+**(2024.2.28)** Reorganized the code structures.
 
-TODO: Program verification
+**TODO**: Program verification
 
 
 ## Get Started
