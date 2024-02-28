@@ -8,6 +8,14 @@ On ImageNet:
 On Stable Diffusion v1.4:
 ![Display3](imgs/sd_images.png)
 
+## Update Log 
+We would fisrt like to thank your interest in our work. The current repository is under reconstruction for combining different settings. Using the current code is fine but may encounter unexpected bugs. Apologies for this inconvenience!
+
+(2024.2.28) Reorganized the code structures.
+
+TODO: Program verification
+
+
 ## Get Started
 ### Presquites
 Make sure you have conda installed first, then:

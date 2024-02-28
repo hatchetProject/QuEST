@@ -382,14 +382,16 @@ def main():
             setattr(sampler.model.model.diffusion_model, "split", True)
         if opt.quant_mode == 'qdiff':
             wq_params = {'n_bits': opt.weight_bit, 'channel_wise': True, 'scale_method': 'mse'}
-            # aq_params = {'n_bits': opt.act_bit, 'channel_wise': True, 'scale_method': 'mse', 'leaf_param':  opt.quant_act}
-            aq_params = {'n_bits': opt.act_bit, 'channel_wise': True, 'scale_method': 'mse', 'leaf_param':  opt.quant_act}
+            aq_params = {'n_bits': opt.act_bit, 'channel_wise': False, 'scale_method': 'mse', 'leaf_param':  opt.quant_act}
             if opt.resume:
                 logger.info('Load with min-max quick initialization')
                 wq_params['scale_method'] = 'max'
                 aq_params['scale_method'] = 'max'
             if opt.resume_w:
                 wq_params['scale_method'] = 'max'
+            # Tokenwise activation is necessary
+            if opt.act_bit == 4:
+                aq_params['channel_wise'] = True
 
             logger.info(f"Sampling data from {opt.cali_st} timesteps for calibration")
             sample_data = torch.load(opt.cali_data_path)
@@ -407,7 +409,7 @@ def main():
             qnn.cuda()
             qnn.eval()
 
-            # TODO: Crucial 1. Set the first and last layer to be 8 bit
+            # Set the first and last layer to be 8 bit
             for n, m in qnn.named_modules():
                 if isinstance(m, QuantModule):
                     if ".out.2" in n or "input_blocks.0.0" in n:
@@ -434,7 +436,6 @@ def main():
                 else:
                     logger.info("Initializing weight quantization parameters")
                     qnn.set_quant_state(True, False) # enable weight quantization, disable act quantization
-                    # _ = qnn(cali_xs[:8].cuda(), cali_ts[:8].cuda(), cali_cs[:8].cuda())
                     _ = qnn(cali_xs[:4].cuda(), cali_ts[:4].cuda(), cali_cs[:4].cuda())
                     torch.cuda.empty_cache()
                     logger.info("Initializing has done!")
@@ -452,7 +453,6 @@ def main():
                         logger.info(f"{name} {isinstance(module, BaseQuantBlock)}")
                         if name == 'output_blocks':
                             logger.info("Finished calibrating input and mid blocks, saving temporary checkpoint...")
-                            in_recon_done = True
                             torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt.pth"))
                         if name.isdigit() and int(name) >= 9:
                             logger.info(f"Saving temporary checkpoint at {name}...")
@@ -465,7 +465,6 @@ def main():
                             else:
                                 logger.info('Reconstruction for layer {}'.format(name))
                                 layer_reconstruction(qnn, module, **kwargs)
-                                torch.cuda.empty_cache()
                         elif isinstance(module, BaseQuantBlock):
                             if module.ignore_reconstruction is True:
                                 logger.info('Ignore reconstruction of block {}'.format(name))
@@ -473,15 +472,15 @@ def main():
                             else:
                                 logger.info('Reconstruction for block {}'.format(name))
                                 block_reconstruction(qnn, module, **kwargs)
-                                torch.cuda.empty_cache()
                         else:
                             recon_model(module)
 
                 if not opt.resume_w:
                     logger.info("Doing weight calibration")
                     recon_model(qnn)
+                    is_recon = True
                     qnn.set_quant_state(weight_quant=True, act_quant=False)
-                    torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt_w4_repq.pth"))
+                    torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt_w4.pth"))
                     torch.cuda.empty_cache()
                 
                 if opt.quant_act:
@@ -498,11 +497,11 @@ def main():
                         chosen_timestep = timesteps[0]
                         qnn.set_timestep(chosen_timestep)
                         inds = np.random.choice(cali_xs.shape[0], b_size, replace=False)
-                        
                         _ = qnn(cali_xs[inds].cuda(), cali_ts[inds].cuda(), cali_cs[inds].cuda())
+
                         # Copy initialized parameters
                         logger.info("Copying parameters to other timesteps")
-                        for name, module in qnn.named_modules():
+                        for _, module in qnn.named_modules():
                             if isinstance(module, (QuantModule)):
                                 for k in timesteps:
                                     if k != chosen_timestep:
@@ -535,14 +534,14 @@ def main():
                                     cali_cs[inds[i * b_size:(i + 1) * b_size]].cuda())
                             qnn.set_running_stat(False, opt.rs_sm_only)
 
-                    logger.info("Doing activation reconstruction")
-                    #for debugging, thus commented
-                    kwargs = dict(
-                        cali_data=cali_data, batch_size=int(opt.cali_batch_size), iters=opt.cali_iters_a, act_quant=True, 
-                        opt_mode='mse', lr=opt.cali_lr, p=opt.cali_p, cond=opt.cond, timesteps=timesteps, outpath=outpath, 
-                        asym=False)
-                    recon_model(qnn)
-                    is_recon = True
+                    # # Use this for activation calibration, which we do not recommend
+                    # logger.info("Doing activation reconstruction")
+                    # kwargs = dict(
+                    #     cali_data=cali_data, batch_size=int(opt.cali_batch_size), iters=opt.cali_iters_a, act_quant=True, 
+                    #     opt_mode='mse', lr=opt.cali_lr, p=opt.cali_p, cond=opt.cond, timesteps=timesteps, outpath=outpath, 
+                    #     asym=False)
+                    # recon_model(qnn)
+                    # is_recon = True
 
                 logger.info("Saving calibrated quantized UNet model")
                 # Save quantization parameters as model parameters
@@ -567,9 +566,11 @@ def main():
                                 m.zero_point_list = nn.Parameter(m.zero_point_list)
                 torch.save(qnn.state_dict(), os.path.join(outpath, "ckpt.pth"))
             torch.cuda.empty_cache()
-        
+
+            # You can do the following two steps individually
             pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
             pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
+
             qnn.set_quant_state(True, True)
 
             logger.info("Saving calibrated quantized UNet model")
@@ -599,9 +600,6 @@ def main():
     if not opt.resume and is_recon:
         logger.info("Delete cached data to save disk usage")
         shutil.rmtree(os.path.join(outpath, "tmp_cached"))
-
-    # from qdiff.post_layer_recon import image_generation
-    # image_generation(sampler, outpath, opt)
 
     batch_size = min(opt.n_samples, 5)
     n_rows = opt.n_rows if opt.n_rows > 0 else batch_size

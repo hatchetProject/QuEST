@@ -1,3 +1,6 @@
+"""
+This is an example script to generate calibration set for ImageNet using DDIM sampling.
+"""
 import argparse, os, sys, gc, glob, datetime, yaml
 import logging
 import time

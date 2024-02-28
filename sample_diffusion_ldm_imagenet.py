@@ -472,7 +472,7 @@ if __name__ == "__main__":
             a_scale_method = 'mse' if not opt.a_min_max else 'max'
             wq_params = {'n_bits': opt.weight_bit, 'channel_wise': True, 'scale_method': 'mse'}
             aq_params = {
-                'n_bits': opt.act_bit, 'symmetric': opt.a_sym, 'channel_wise': True, 
+                'n_bits': opt.act_bit, 'symmetric': opt.a_sym, 'channel_wise': False, 
                 'scale_method': a_scale_method, 'leaf_param': opt.quant_act
             }
             if opt.resume:
@@ -481,6 +481,10 @@ if __name__ == "__main__":
                 aq_params['scale_method'] = 'max'
             if opt.resume_w:
                 wq_params['scale_method'] = 'max'
+            # Tokenwise activation is necessary
+            if opt.act_bit == 4:
+                aq_params['channel_wise'] = True
+            
             logger.info(f"Sampling data from {opt.cali_st} timesteps for calibration")
             sample_data = torch.load(opt.cali_data_path)
             cali_data = get_train_samples(opt, sample_data)
@@ -497,7 +501,7 @@ if __name__ == "__main__":
             qnn.cuda()
             qnn.eval()
 
-            # TODO: Crucial 1. Set the first and last layer to be 8 bit
+            # Set the first and last layer to be 8 bit
             for n, m in qnn.named_modules():
                 if isinstance(m, QuantModule):
                     if ".out.2" in n or "input_blocks.0.0" in n:
@@ -506,6 +510,7 @@ if __name__ == "__main__":
                             m_act.n_bits = 8
                             m_act.n_levels = 2 ** 8
 
+            is_recon = False
             if opt.resume:
                 image_size = config.model.params.image_size
                 channels = config.model.params.channels
@@ -521,6 +526,45 @@ if __name__ == "__main__":
                     qnn.set_timestep(timesteps[0])
                     _ = qnn(cali_xs[:8].cuda(), cali_ts[:8].cuda(), cali_cs[:8].cuda())
                     logger.info("Initializing has done!")
+
+                kwargs = dict(cali_data=cali_data, batch_size=int(opt.cali_batch_size / 2), 
+                        iters=opt.cali_iters, weight=0.01, asym=True, b_range=(20, 2),
+                        warmup=0.2, act_quant=False, opt_mode='mse', cond=opt.cond, outpath=logdir)
+            
+                def recon_model(model):
+                    for name, module in model.named_children():
+                        logger.info(f"{name} {isinstance(module, BaseQuantBlock)}")
+                        if name == 'output_blocks':
+                            logger.info("Finished calibrating input and mid blocks, saving temporary checkpoint...")
+                            torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))
+                        if name.isdigit() and int(name) >= 9:
+                            logger.info(f"Saving temporary checkpoint at {name}...")
+                            torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))
+                        
+                        if isinstance(module, QuantModule):
+                            if module.ignore_reconstruction is True:
+                                logger.info('Ignore reconstruction of layer {}'.format(name))
+                                continue
+                            else:
+                                logger.info('Reconstruction for layer {}'.format(name))
+                                layer_reconstruction(qnn, module, **kwargs)
+                        elif isinstance(module, BaseQuantBlock):
+                            if module.ignore_reconstruction is True:
+                                logger.info('Ignore reconstruction of block {}'.format(name))
+                                continue
+                            else:
+                                logger.info('Reconstruction for block {}'.format(name))
+                                block_reconstruction(qnn, module, **kwargs)
+                        else:
+                            recon_model(module)
+
+                if not opt.resume_w:
+                    logger.info("Doing weight calibration")
+                    recon_model(qnn)
+                    is_recon = True
+                    qnn.set_quant_state(weight_quant=True, act_quant=False)
+                    torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))
+                    torch.cuda.empty_cache()
 
                 if opt.quant_act:
                     logger.info("UNet model")                
@@ -546,9 +590,7 @@ if __name__ == "__main__":
                                 cali_ts_t = cali_ts[inds]
                                 cali_cs_t = cali_cs[inds]
                                 for i in range(int(cali_xs_t.size(0) / 64)):
-                                    _ = qnn(cali_xs_t[i * 64:(i + 1) * 64].cuda(), 
-                                            cali_ts_t[i * 64:(i + 1) * 64].cuda(), 
-                                            cali_cs_t[i * 64:(i + 1) * 64].cuda())
+                                    _ = qnn(cali_xs_t[i * 64:(i + 1) * 64].cuda(), cali_ts_t[i * 64:(i + 1) * 64].cuda(), cali_cs_t[i * 64:(i + 1) * 64].cuda())
                             qnn.set_running_stat(False)
                     
                     qnn.set_quant_state(weight_quant=True, act_quant=True)   
@@ -598,7 +640,11 @@ if __name__ == "__main__":
 
             qnn.set_quant_state(weight_quant=True, act_quant=True)
             model.model.diffusion_model = qnn
-
+    
+    if not opt.resume and is_recon:
+        logger.info("Delete cached data to save disk usage")
+        shutil.rmtree(os.path.join(logdir, "tmp_cached"))
+        
     # write config out
     sampling_file = os.path.join(logdir, "sampling_config.yaml")
     sampling_conf = vars(opt)
@@ -612,8 +658,9 @@ if __name__ == "__main__":
         logger.info("UNet model")
         logger.info(model.model)
 
-    # class_list = [1, 21, 979]
-    class_list = np.arange(1000)
+    # For result verification
+    class_list = [1, 21, 979]
+    # class_list = np.arange(1000)
     for c in class_list:
         run(model, imglogdir, label=c, eta=opt.eta,
             vanilla=opt.vanilla_sample,  n_samples=opt.n_samples, custom_steps=opt.custom_steps,
