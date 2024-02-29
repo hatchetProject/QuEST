@@ -10,11 +10,17 @@ We would first like to thank your interest in our work. The current repository i
 
 ## Features
 QuEST achieves state-of-the-art performance on mutiple high-resolution image generation tasks, including unconditional image generation, class-conditional image generation and text-to-image generation. We also achieve superior performance on full 4-bit (W4A4) generation.   
-![Display1](imgs/fig1.png)
+<p align="center">
+<img src="imgs/fig1.png" alt="drawing" width="990"/>
+</p>
 On ImageNet:
-![Display1](imgs/imagenet_example.png)
+<p align="center">
+<img src="imgs/imagenet_example.png" alt="drawing" width="980"/>
+</p>
 On Stable Diffusion v1.4:
-![Display1](imgs/sd_images.png)
+<p align="center">
+<img src="imgs/sd_images.png" alt="drawing" width="990"/>
+</p>
 
 ## Get Started
 ### Presquites
