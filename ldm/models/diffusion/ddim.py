@@ -146,12 +146,15 @@ class DDIMSampler(object):
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
 
-            if i % 10 == 0:
-                # print(f"Setting timestep to {step}")
-                self.model.model.diffusion_model.set_timestep(step)
-                old_step = step
+            try:
+                if i % 10 == 0:
+                    # print(f"Setting timestep to {step}")
+                    self.model.model.diffusion_model.set_timestep(step)
+                    old_step = step
+                else:
+                    self.model.model.diffusion_model.set_timestep(old_step)
             else:
-                self.model.model.diffusion_model.set_timestep(old_step)
+                pass
 
             if mask is not None:
                 assert x0 is not None
