@@ -12,9 +12,9 @@ We would first like to thank your interest in our work. The current repository i
 QuEST achieves state-of-the-art performance on mutiple high-resolution image generation tasks, including unconditional image generation, class-conditional image generation and text-to-image generation. We also achieve superior performance on full 4-bit (W4A4) generation.   
 ![Display1](imgs/fig1.png)
 On ImageNet:
-
+![Display1](imgs/imagenet_example.png)
 On Stable Diffusion v1.4:
-
+![Display1](imgs/sd_images.png)
 
 ## Get Started
 ### Presquites
@@ -46,6 +46,8 @@ We will release the calibration data. But you can also generate them yourself by
 python get_calibration_set_imagenet_ddim.py -r <FP_Model_Path> -n 10 --batch_size 10 -c 20 -e 1.0 -seed 40 -l output/ --cond
 ```
 
+### Evaluation
+We use the ADM’s TensorFlow evaluation suite [link](https://github.com/openai/guided-diffusion/tree/main/evaluations) for evaluating FID, sFID and IS. For Stable Diffusion, we generate 10,000 samples based on the prompts from the COCO2014 dataset calculate the average CLIP score.
 
 ## Acknowledgement
 This project is heavily based on [LDM](https://github.com/CompVis/latent-diffusion/tree/main) and [Q-Diffusion](https://github.com/Xiuyu-Li/q-diffusion/tree/master).
