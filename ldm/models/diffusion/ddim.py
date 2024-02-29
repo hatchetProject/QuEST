@@ -146,6 +146,7 @@ class DDIMSampler(object):
             index = total_steps - i - 1
             ts = torch.full((b,), step, device=device, dtype=torch.long)
 
+            # For 20 sampled timesteps
             try:
                 if i % 10 == 0:
                     # print(f"Setting timestep to {step}")
