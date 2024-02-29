@@ -153,7 +153,7 @@ class DDIMSampler(object):
                     old_step = step
                 else:
                     self.model.model.diffusion_model.set_timestep(old_step)
-            else:
+            except:
                 pass
 
             if mask is not None:
