@@ -13,11 +13,11 @@ QuEST achieves state-of-the-art performance on mutiple high-resolution image gen
 <p align="center">
 <img src="imgs/fig1.png" alt="drawing" width="990"/>
 </p>
-On ImageNet:
+On ImageNet 256*256:
 <p align="center">
 <img src="imgs/imagenet_example.png" alt="drawing" width="980"/>
 </p>
-On Stable Diffusion v1.4:
+On Stable Diffusion v1.4 (512*512):
 <p align="center">
 <img src="imgs/sd_images.png" alt="drawing" width="990"/>
 </p>
