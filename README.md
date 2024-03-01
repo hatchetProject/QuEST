@@ -23,7 +23,7 @@ On Stable Diffusion v1.4:
 </p>
 
 ## Get Started
-### Presquites
+### Prerequisites
 Make sure you have conda installed first, then:
 ```
 git clone https://github.com/hatchetProject/QuEST.git
