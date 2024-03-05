@@ -347,8 +347,7 @@ class ActUniformQuantizer(nn.Module):
             if len(x.shape) == 4:
                 n_channels = x_clone.shape[1]
             elif len(x.shape) == 3: 
-                # n_channels = x_clone.shape[1] # tokenwise quantization for linear layers
-                n_channels = x_clone.shape[-1] # channelwise quantization for linear layers
+                n_channels = x_clone.shape[-1] # tokenwise quantization for linear layers
             else:
                 n_channels = x_clone.shape[1]
 
@@ -367,7 +366,6 @@ class ActUniformQuantizer(nn.Module):
             # determine the scale and zero point channel-by-channel
             for c in range(n_channels):
                 if len(x.shape) == 3:
-                    # delta[c], zero_point[c] = self.init_quantization_scale(x_clone[:,c,:], channel_wise=False)
                     delta[c], zero_point[c] = self.init_quantization_scale(x_clone[:, :, c], channel_wise=False)
                 elif len(x.shape) == 4:
                     delta[c], zero_point[c] = self.init_quantization_scale(x_clone[:,c,:,:], channel_wise=False)
