@@ -538,7 +538,7 @@ def main():
                     # logger.info("Doing activation reconstruction")
                     # kwargs = dict(
                     #     cali_data=cali_data, batch_size=int(opt.cali_batch_size), iters=opt.cali_iters_a, act_quant=True, 
-                    #     opt_mode='mse', lr=opt.cali_lr, p=opt.cali_p, cond=opt.cond, timesteps=timesteps, outpath=outpath, 
+                    #     opt_mode='mse', lr=opt.cali_lr, p=opt.cali_p, cond=opt.cond, outpath=outpath, 
                     #     asym=False)
                     # recon_model(qnn)
                     # is_recon = True
