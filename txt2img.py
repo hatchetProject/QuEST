@@ -545,7 +545,8 @@ def main():
 
                 logger.info("Saving calibrated quantized UNet model")
                 # Save quantization parameters as model parameters
-                qnn.save_dict_params()
+                if opt.quant_act:
+                    qnn.save_dict_params()
                 
                 # Save the quantized model
                 for m in qnn.model.modules():
@@ -568,14 +569,16 @@ def main():
             torch.cuda.empty_cache()
 
             # You can do the following two steps individually
-            pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
-            pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
+            if opt.quant_act:
+                pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
+                pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
 
             qnn.set_quant_state(True, True)
 
             logger.info("Saving calibrated quantized UNet model")
             # Save quantization parameters as model parameters
-            qnn.save_dict_params()    
+            if opt.quant_act:
+                qnn.save_dict_params()    
             # Save the quantized model
             for m in qnn.model.modules():
                 if isinstance(m, AdaRoundQuantizer):
