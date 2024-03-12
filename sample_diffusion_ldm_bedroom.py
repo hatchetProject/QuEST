@@ -591,7 +591,8 @@ if __name__ == "__main__":
                     qnn.set_quant_state(weight_quant=True, act_quant=True)
                 
                 logger.info("Saving calibrated quantized UNet model")
-                qnn.save_dict_params()
+                if opt.quant_act:
+                    qnn.save_dict_params()
                 for m in qnn.model.modules():
                     if isinstance(m, AdaRoundQuantizer):
                         m.zero_point = nn.Parameter(m.zero_point)
@@ -609,12 +610,13 @@ if __name__ == "__main__":
                             else:
                                 m.zero_point_list = nn.Parameter(m.zero_point_list.float())
                 torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))
-
-            pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
-            pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
+            if opt.quant_act:
+                pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
+                pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
 
             logger.info("Saving calibrated quantized UNet model")
-            qnn.save_dict_params()
+            if opt.quant_act:
+                qnn.save_dict_params()
             for m in qnn.model.modules():
                 if isinstance(m, AdaRoundQuantizer):
                     m.zero_point = nn.Parameter(m.zero_point)
