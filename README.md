@@ -2,11 +2,7 @@
 The official repository for **QuEST: Low-bit Diffusion Model Quantization via Efficient Selective Finetuning** [[ArXiv]](https://arxiv.org/abs/2402.03666)
 
 ## Update Log 
-We would first like to thank your interest in our work. The current repository is under reconstruction for combining different settings. Using the current code is fine but may encounter unexpected bugs. Apologies for this inconvenience!
-
 **(2024.2.28)** Reorganized the code structures.
-
-**TODO**: Program verification.
 
 ## Features
 QuEST achieves state-of-the-art performance on mutiple high-resolution image generation tasks, including unconditional image generation, class-conditional image generation and text-to-image generation. We also achieve superior performance on full 4-bit (W4A4) generation.   
@@ -34,7 +30,7 @@ conda activate quest
 ### Usage
 1. For Latent Diffusion and Stable Diffusion experiments, first download relvant checkpoints following the instructions in the [latent-diffusion](https://github.com/CompVis/latent-diffusion/tree/main) and [stable-diffusion](https://github.com/CompVis/stable-diffusion#weights) repos from CompVis. We currently use sd-v1-4.ckpt for Stable Diffusion.
 2. The calibration data for LSUN-Bedrooms/Churches and Stable Diffusion (COCO) can be downloaded from the [Q-Diffusion](https://github.com/Xiuyu-Li/q-diffusion/tree/master) repository. We will upload the calibration data for ImageNet soon.
-3. Use the following commands to reproduce the models. act_bit=4 additionally use token-wise quantization, which does not effect computation efficiency. Also, exclude the --running_stat argument for W4A4 quantization.
+3. Use the following commands to reproduce the models. act_bit=4 additionally use channel-wise quantization on a more hardware-friendly dimension, which reduces computation cost. Also, exclude the --running_stat argument for W4A4 quantization.
 ```
 # LSUN-Bedrooms (LDM-4)
 python sample_diffusion_ldm_bedroom.py -r models/ldm/lsun_beds256/model.ckpt -n 100 --batch_size 20 -c 200 -e 1.0  --seed 40 --ptq  --weight_bit <4 or 8> --quant_mode qdiff --cali_st 20 --cali_batch_size 32 --cali_n 256 --quant_act --act_bit <4 or 8> --a_sym --a_min_max --running_stat --cali_data_path <cali_data_path> -l <output_path>
