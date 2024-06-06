@@ -436,6 +436,7 @@ def main():
                 else:
                     logger.info("Initializing weight quantization parameters")
                     qnn.set_quant_state(True, False) # enable weight quantization, disable act quantization
+                    qnn.set_timestep(timesteps[0])
                     _ = qnn(cali_xs[:4].cuda(), cali_ts[:4].cuda(), cali_cs[:4].cuda())
                     torch.cuda.empty_cache()
                     logger.info("Initializing has done!")
