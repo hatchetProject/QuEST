@@ -511,6 +511,7 @@ if __name__ == "__main__":
                 else:
                     logger.info("Initializing weight quantization parameters")
                     qnn.set_quant_state(True, False) # enable weight quantization, disable act quantization
+                    qnn.set_timestep(timesteps[0])
                     _ = qnn(cali_xs[:8].cuda(), cali_ts[:8].cuda())
                     logger.info("Initializing has done!")
 
