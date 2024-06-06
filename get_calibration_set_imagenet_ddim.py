@@ -458,7 +458,7 @@ if __name__ == "__main__":
     # model.model_ema.copy_to(model.model)
 
     # print(model.model)
-    assert(not opt.cond)
+    # assert(opt.cond)
     
     # write config out
     sampling_file = os.path.join(logdir, "sampling_config.yaml")
