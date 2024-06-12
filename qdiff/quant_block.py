@@ -361,12 +361,12 @@ def get_specials(quant_act=False):
     specials = {
         ResBlock: QuantResBlock,
         BasicTransformerBlock: QuantBasicTransformerBlock,
-        #ResnetBlock: QuantResnetBlock,
-        #AttnBlock: QuantAttnBlock,
+        # ResnetBlock: QuantResnetBlock,
+        # AttnBlock: QuantAttnBlock,
     }
-    # if quant_act:
-    #     specials[QKMatMul] = QuantQKMatMul
-    #     specials[SMVMatMul] = QuantSMVMatMul
-    # else:
-    #     specials[AttentionBlock] = QuantAttentionBlock
+    if quant_act:
+        specials[QKMatMul] = QuantQKMatMul
+        specials[SMVMatMul] = QuantSMVMatMul
+    else:
+        specials[AttentionBlock] = QuantAttentionBlock
     return specials
