@@ -15,7 +15,7 @@ from ldm.models.diffusion.dpm_solver import DPMSolverSampler
 from ldm.util import instantiate_from_config
 
 from qdiff import (
-    QuantModel, QuantModule, BaseQuantBlock, QuantQKMatMul, QuantSMVMatMul, QuantBasicTransformerBlock,
+    QuantModel, QuantModule, BaseQuantBlock, QuantQKMatMul, QuantSMVMatMul, QuantBasicTransformerBlock, QuantAttentionBlock, QuantResBlock,
     block_reconstruction, layer_reconstruction,
 )
 from qdiff.adaptive_rounding import AdaRoundQuantizer
@@ -536,7 +536,7 @@ if __name__ == "__main__":
                             else:
                                 logger.info('Reconstruction for layer {}'.format(name))
                                 layer_reconstruction(qnn, module, **kwargs)
-                        elif isinstance(module, BaseQuantBlock):
+                        elif isinstance(module, (QuantAttentionBlock, QuantResBlock)):
                             if module.ignore_reconstruction is True:
                                 logger.info('Ignore reconstruction of block {}'.format(name))
                                 continue
