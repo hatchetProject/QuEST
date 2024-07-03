@@ -571,8 +571,8 @@ def main():
 
             # You can do the following two steps individually
             if opt.quant_act:
-                pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
-                pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath, cond=True)
+                pd_optimize_timeembed(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath)
+                pd_optimize_timewise(qnn, cali_data, sampler, opt, logger, iters=1000, timesteps=timesteps, outpath=outpath)
 
             qnn.set_quant_state(True, True)
 
