@@ -430,9 +430,9 @@ def resume_cali_model(qnn, ckpt_path, cali_data, quant_act=False, cond=False, ti
             qnn.set_timestep(timesteps[0])
             with torch.no_grad():
                 if cond:
-                    _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
-                else:
                     _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda(), cali_cs[:1].cuda())
+                else:
+                    _ = qnn(cali_xs[:1].cuda(), cali_ts[:1].cuda())
                 for _, module in qnn.named_modules():
                     if isinstance(module, (QuantModule)):
                         for k in timesteps[1:]:
