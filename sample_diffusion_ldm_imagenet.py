@@ -614,8 +614,8 @@ if __name__ == "__main__":
                                 m.zero_point_list = nn.Parameter(m.zero_point_list.float())
                 torch.save(qnn.state_dict(), os.path.join(logdir, "ckpt.pth"))         
             if opt.quant_act:
-                pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir, cond=True)
-                pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir, cond=True)
+                pd_optimize_timeembed(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
+                pd_optimize_timewise(qnn, cali_data, opt, logger, iters=1000, timesteps=timesteps, outpath=logdir)
 
             logger.info("Saving calibrated quantized UNet model")
             if opt.quant_act:
