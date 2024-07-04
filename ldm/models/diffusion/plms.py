@@ -417,14 +417,14 @@ class PLMSSampler_Timewise(object):
             ts_next = torch.full((b,), time_range[min(i + 1, len(time_range) - 1)], device=device, dtype=torch.long)
             
             # Set quantization parameters, for 25 sampled timesteps
-            # if i % 2 == 0:
-            #     self.model.model.diffusion_model.set_timestep(step)
-            #     old_step = step
-            # else:
-            #     self.model.model.diffusion_model.set_timestep(old_step)
+            if i % 2 == 0:
+                self.model.model.diffusion_model.set_timestep(step)
+                old_step = step
+            else:
+                self.model.model.diffusion_model.set_timestep(old_step)
 
             # For 50 sampled timesteps
-            self.model.model.diffusion_model.set_timestep(step)
+            # self.model.model.diffusion_model.set_timestep(step)
 
             if mask is not None:
                 assert x0 is not None
