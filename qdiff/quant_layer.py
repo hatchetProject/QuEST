@@ -285,7 +285,7 @@ class ActUniformQuantizer(nn.Module):
         self.sym = symmetric
         self.always_zero = always_zero
         self.n_bits = n_bits
-        self.n_levels = 2 ** self.n_bits
+        self.n_levels = 2 ** self.n_bits if not self.sym else 2 ** (self.n_bits - 1) - 1
         self.delta = None
         self.zero_point = None
         self.inited = False
