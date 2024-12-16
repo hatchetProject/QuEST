@@ -3,6 +3,7 @@ The official repository for **QuEST: Low-bit Diffusion Model Quantization via Ef
 
 ## Update Log 
 **(2024.2.28)** Reorganized the code structures.
+
 **(2024.12.15)** Fixed some inconsistencies in implementation.
 
 ## Features
