@@ -472,7 +472,7 @@ class ActUniformQuantizer(nn.Module):
         if self.sym:
             x_quant = torch.clamp(x_int, -self.n_levels - 1, self.n_levels)
         else:
-            x_quant = torch.clamp(x_int, 0, self.n_levels - 1)
+            x_quant = torch.clamp(x_int + zero_point, 0, self.n_levels - 1)
         x_float_q = (x_quant - zero_point) * delta
         return x_float_q
 
