@@ -3,6 +3,7 @@ The official repository for **QuEST: Low-bit Diffusion Model Quantization via Ef
 
 ## Update Log 
 **(2024.2.28)** Reorganized the code structures.
+**(2024.12.15)** Fixed some inconsistencies in implementation.
 
 ## Features
 QuEST achieves state-of-the-art performance on mutiple high-resolution image generation tasks, including unconditional image generation, class-conditional image generation and text-to-image generation. We also achieve superior performance on full 4-bit (W4A4) generation.   
