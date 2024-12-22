@@ -30,7 +30,7 @@ conda env create -f environment.yml
 conda activate quest
 ```
 ### Usage
-1. For Latent Diffusion and Stable Diffusion experiments, first download relvant checkpoints following the instructions in the [latent-diffusion](https://github.com/CompVis/latent-diffusion/tree/main) and [stable-diffusion](https://github.com/CompVis/stable-diffusion#weights) repos from CompVis. We currently use sd-v1-4.ckpt for Stable Diffusion.
+1. For Latent Diffusion and Stable Diffusion experiments, first download pretrained model checkpoints following the instructions in the [latent-diffusion](https://github.com/CompVis/latent-diffusion/tree/main) and [stable-diffusion](https://github.com/CompVis/stable-diffusion#weights) repos from CompVis. We currently use sd-v1-4.ckpt for Stable Diffusion.
 2. The calibration data for LSUN-Bedrooms/Churches and Stable Diffusion (COCO) can be downloaded from the [Q-Diffusion](https://github.com/Xiuyu-Li/q-diffusion/tree/master) repository. We will upload the calibration data for ImageNet soon.
 3. Use the following commands to reproduce the models. `act_bit=4` additionally use channel-wise quantization on a more hardware-friendly dimension, which reduces computation cost. Also, exclude the `--running_stat` argument for W4A4 quantization.
 4. Change line 151 in ldm/models/diffusion/ddim.py according the the number of timesteps you use, where you can replace '10' with the resulting number of `--c // --cali_st`, e.g. 200 // 20 = 10. Comment line 149~158 if you would like to inference with the FP model.
