@@ -55,7 +55,7 @@ def pd_optimize_timewise(model, cali_data, sampler, opt, logger, iters: int = 20
     save_folder = os.path.join(outpath.split('/')[0], "fp_activations_timewise")
     if not os.path.exists(save_folder):
         os.makedirs(save_folder)
-
+    # with torch.enable_grad():
     for epoch in range(20):
         for t in timesteps:   # Reverse timestep order
             model.set_timestep(t)
