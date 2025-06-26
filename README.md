@@ -2,7 +2,7 @@
 The official repository for **QuEST: Low-bit Diffusion Model Quantization via Efficient Selective Finetuning** [[ArXiv]](https://arxiv.org/abs/2402.03666)
 
 ## Update Log 
-**(2024.6.25)** QuEST has been accepted to ICCV 2025. Thank you all for the advice and discussions. 
+**(2025.6.25)** QuEST has been accepted to ICCV 2025. Thank you all for the advice and discussions. 
 
 **(2024.12.15)** Fixed some inconsistencies in implementation.
 
