@@ -2,9 +2,11 @@
 The official repository for **QuEST: Low-bit Diffusion Model Quantization via Efficient Selective Finetuning** [[ArXiv]](https://arxiv.org/abs/2402.03666)
 
 ## Update Log 
-**(2024.2.28)** Reorganized the code structures.
+**(2024.6.25)** QuEST has been accepted to ICCV 2025. Thank you all for the advice and discussions. 
 
 **(2024.12.15)** Fixed some inconsistencies in implementation.
+
+**(2024.2.28)** Reorganized the code structures.
 
 ## Features
 QuEST achieves state-of-the-art performance on mutiple high-resolution image generation tasks, including unconditional image generation, class-conditional image generation and text-to-image generation. We also achieve superior performance on full 4-bit (W4A4) generation.   
